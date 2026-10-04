@@ -26,6 +26,7 @@ python -m unittest discover -s tests -v
 ```text
 student_manage_sys/
 ├── README.md
+├── AGENTS.md             # AI 協作與共同開發規則
 ├── main.py
 ├── .gitignore
 ├── data/                 # students、courses、classrooms、activities、enrollments.json
@@ -63,6 +64,24 @@ student_manage_sys/
 | F11 AI 輔助品質改善 | 未開始（已建立紀錄模板） |
 
 有實作後才標記「開發中／已完成」，執行驗證後才標記「測試通過」。
+
+### AI 協作與共同開發規則
+
+使用 coding agent 修改專案前，先閱讀 [AGENTS.md](AGENTS.md)，遵循共同的程式、
+資料、測試與文件規則。其他 AI 工具若未自動讀取，請在任務開頭要求它閱讀此檔。
+團隊成員同步取得 AGENTS.md 與 docs/ 的最新版本，避免使用不同的規格。
+
+### Coding Convention v1
+
+目前共同開發規範如下；[AGENTS.md](AGENTS.md) 提供對應的英文指引。
+開發註解及新的技術文件預設使用英文，README 保留中文方便組員閱讀。
+
+- 採 4 個空白字元縮排。
+- 函式及變數使用 snake_case；類別使用 PascalCase。
+- 核心函式不使用全域變數傳遞系統資料。
+- 輸入資料先驗證，再進行核心處理。
+- 錯誤以明確的回傳結果或例外處理呈現，不讓單筆錯誤造成整個系統無預警終止。
+- 每個核心函式至少規劃正常、邊界及錯誤案例。
 
 ### 建議開發順序
 
