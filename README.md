@@ -36,7 +36,9 @@ student_manage_sys/
 │   ├── validation.py     # 格式驗證
 │   ├── management.py     # 基本資料管理
 │   ├── conflicts.py      # 共用衝突檢查
-│   └── timetable.py      # 課表與空堂
+│   ├── timetable.py      # 課表與空堂
+│   ├── activities.py     # 活動與教室配置
+│   └── course_filter.py  # 課程篩選與可行性
 ├── tests/                # 自動化測試計畫
 └── docs/
     ├── requirements.md   # 團隊需求與介面草案
