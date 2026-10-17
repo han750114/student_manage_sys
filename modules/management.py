@@ -1,160 +1,138 @@
+"""Pure F1 operations. Results contain ok, data, errors; inputs stay unchanged."""
+from copy import deepcopy
 from .validation import validate_course, validate_student
 
-# ==========================================
-# 1. 課程管理功能 (Course Management)
-# ==========================================
 
-def add_course(courses: list, course_data: dict, valid_classrooms: list) -> dict:
-    """功能：新增課程 (包含代號重複與資料合法性檢查)"""
-    errors = validate_course(course_data, valid_classrooms)
+def result(data, errors=()):
+    """Build the common operation result."""
+    return {'ok': not errors, 'data': data, 'errors': list(errors)}
+
+
+def change_record(records, record, key, validate, target_id=None):
+    """Validate an addition/update before constructing an independent result."""
+    if not isinstance(record, dict):
+        return result(records, ['資料必須為物件。'])
+    target = None
+    if target_id is not None:
+        target = next((row for row in records if row[key] == target_id), None)
+        if target is None:
+            return result(records, ['找不到指定資料。'])
+        if key in record and record[key] != target_id:
+            return result(records, ['代號不可修改，以免破壞選課關聯。'])
+    merged = {**(target or {}), **record}
+    errors = validate(merged)
+    if target is None and any(row[key] == merged.get(key) for row in records):
+        errors.append('代號已存在。')
     if errors:
-        return {"ok": False, "data": courses, "errors": errors}
-    
-    # 檢查課程代號不得重複
-    if any(c["course_id"] == course_data["course_id"] for c in courses):
-        return {"ok": False, "data": courses, "errors": [f"課程代號 {course_data['course_id']} 已存在"]}
-    
-    new_course = course_data.copy()
-    if "enrolled_students" not in new_course:
-        new_course["enrolled_students"] = []
-
-    courses.append(new_course)
-    return {"ok": True, "data": courses, "errors": []}
+        return result(records, errors)
+    updated = deepcopy(records)
+    if target is None:
+        updated.append(deepcopy(merged))
+    else:
+        index = next(i for i, row in enumerate(records) if row[key] == target_id)
+        updated[index] = deepcopy(merged)
+    return result(updated)
 
 
-def update_course(courses: list, course_id: str, update_data: dict, valid_classrooms: list) -> dict:
-    """功能：修改課程資料"""
-    target_course = next((c for c in courses if c["course_id"] == course_id), None)
-    if not target_course:
-        return {"ok": False, "data": courses, "errors": [f"找不到課程代號 {course_id}"]}
-
-    merged_course = target_course.copy()
-    merged_course.update(update_data)
-    
-    errors = validate_course(merged_course, valid_classrooms)
-    if errors:
-        return {"ok": False, "data": courses, "errors": errors}
-
-    target_course.update(update_data)
-    return {"ok": True, "data": courses, "errors": []}
+def add_course(courses, course_data, valid_classrooms):
+    """Add a validated course with a unique ID."""
+    return change_record(courses, course_data, 'course_id',
+                         lambda row: validate_course(row, valid_classrooms))
 
 
-def remove_course(courses: list, course_id: str) -> dict:
-    """功能：刪除課程 (不得刪除已有學生選修的課程)"""
-    target_course = next((c for c in courses if c["course_id"] == course_id), None)
-    if not target_course:
-        return {"ok": False, "data": courses, "errors": [f"找不到課程代號 {course_id}"]}
-
-    # 相依性檢查：已有學生選修時禁止刪除
-    if target_course.get("enrolled_students"):
-        return {"ok": False, "data": courses, "errors": [f"課程 {course_id} 尚有學生選修，無法直接刪除"]}
-
-    courses.remove(target_course)
-    return {"ok": True, "data": courses, "errors": []}
+def update_course(courses, course_id, update_data, valid_classrooms):
+    """Update course fields; identity is immutable."""
+    return change_record(courses, update_data, 'course_id',
+                         lambda row: validate_course(row, valid_classrooms), course_id)
 
 
-def find_courses(courses: list, course_id: str = None, teacher: str = None, weekday: int = None, course_type: str = None, min_remaining: int = None) -> dict:
-    """功能：綜合多條件查詢課程"""
-    results = courses.copy()
+def add_student(students, student_data):
+    """Add a student with a unique ID."""
+    return change_record(students, student_data, 'student_id', validate_student)
 
-    if course_id:
-        results = [c for c in results if c["course_id"] == course_id]
-    if teacher:
-        results = [c for c in results if teacher in c.get("teacher", "")]
-    if weekday is not None:
-        results = [c for c in results if any(slot[0] == weekday for slot in c.get("time_slots", []))]
-    if course_type:
-        results = [c for c in results if c.get("course_type") == course_type]
+
+def update_student(students, student_id, update_data):
+    """Update student fields; identity is immutable."""
+    return change_record(students, update_data, 'student_id', validate_student, student_id)
+
+
+def remove_record(records, identifier, key, enrollments):
+    """Reject deletion without authoritative enrollment data or with dependents."""
+    if enrollments is None:
+        return result(records, ['必須提供選課紀錄才能安全刪除。'])
+    if not any(row[key] == identifier for row in records):
+        return result(records, ['找不到指定資料。'])
+    if any(row.get(key) == identifier for row in enrollments):
+        return result(records, ['尚有學生選修或學生尚有選修課程，請先退選。'])
+    return result(deepcopy([row for row in records if row[key] != identifier]))
+
+
+def remove_course(courses, course_id, enrollments=None):
+    """Delete only courses without enrollment references."""
+    return remove_record(courses, course_id, 'course_id', enrollments)
+
+
+def remove_student(students, student_id, enrollments=None):
+    """Delete only students without enrollment references."""
+    return remove_record(students, student_id, 'student_id', enrollments)
+
+
+def find_courses(courses, course_id=None, teacher=None, weekday=None, course_type=None,
+                 min_remaining=None, enrollments=None):
+    """Return matching courses; accept legacy filter dictionaries during integration."""
+    if isinstance(course_id, dict):
+        filters = course_id
+        unknown = set(filters) - {'course_id', 'teacher', 'day', 'weekday', 'course_type', 'min_remaining'}
+        if unknown:
+            return result([], ['不支援的查詢條件。'])
+        return find_courses(courses, filters.get('course_id'), filters.get('teacher'),
+                            filters.get('weekday', filters.get('day')), filters.get('course_type'),
+                            filters.get('min_remaining'), enrollments)
+    if weekday is not None and (type(weekday) is not int or not 1 <= weekday <= 7):
+        return result([], ['星期必須為 1–7 的整數。'])
     if min_remaining is not None:
-        results = [c for c in results if (c.get("capacity", 0) - len(c.get("enrolled_students", []))) >= min_remaining]
+        if type(min_remaining) is not int or min_remaining < 0:
+            return result([], ['剩餘名額必須為非負整數。'])
+        if enrollments is None:
+            return result([], ['名額查詢必須提供選課紀錄。'])
+    rows = []
+    for row in courses:
+        if course_id and row['course_id'] != course_id:
+            continue
+        if teacher and teacher not in row['teacher']:
+            continue
+        if course_type and row['course_type'] != course_type:
+            continue
+        if weekday is not None and not any(slot[0] == weekday for slot in row['time_slots']):
+            continue
+        used = sum(e['course_id'] == row['course_id'] for e in (enrollments or []))
+        if min_remaining is None or row['capacity'] - used >= min_remaining:
+            rows.append(row)
+    return result(deepcopy(rows))
 
-    return {"ok": True, "data": results, "errors": []}
+
+def find_students(students, student_id=None, name=None, department=None):
+    """Find students by exact ID and name/department substrings."""
+    return result(deepcopy([s for s in students if
+        (not student_id or s['student_id'] == student_id) and
+        (not name or name in s['name']) and (not department or department in s['department'])]))
 
 
-# --- 個別單項查詢專用函式 ---
-
-def find_courses_by_id(courses: list, course_id: str) -> dict:
-    """功能：依課程代號查詢"""
+def find_courses_by_id(courses, course_id):
     return find_courses(courses, course_id=course_id)
 
-def find_courses_by_teacher(courses: list, teacher: str) -> dict:
-    """功能：依授課教師查詢"""
+
+def find_courses_by_teacher(courses, teacher):
     return find_courses(courses, teacher=teacher)
 
-def find_courses_by_weekday(courses: list, weekday: int) -> dict:
-    """功能：依上課星期 (1-7) 查詢"""
+
+def find_courses_by_weekday(courses, weekday):
     return find_courses(courses, weekday=weekday)
 
-def find_courses_by_type(courses: list, course_type: str) -> dict:
-    """功能：依必選修類型 (必修/選修) 查詢"""
+
+def find_courses_by_type(courses, course_type):
     return find_courses(courses, course_type=course_type)
 
-def find_courses_by_remaining_capacity(courses: list, min_remaining: int) -> dict:
-    """功能：依剩餘名額查詢"""
-    return find_courses(courses, min_remaining=min_remaining)
 
-
-# ==========================================
-# 2. 學生管理功能 (Student Management)
-# ==========================================
-
-def add_student(students: list, student_data: dict) -> dict:
-    """功能：新增學生 (包含學號重複檢查)"""
-    errors = validate_student(student_data)
-    if errors:
-        return {"ok": False, "data": students, "errors": errors}
-
-    # 檢查學號不得重複
-    if any(s["student_id"] == student_data["student_id"] for s in students):
-        return {"ok": False, "data": students, "errors": [f"學號 {student_data['student_id']} 已存在"]}
-
-    new_student = student_data.copy()
-    if "enrolled_courses" not in new_student:
-        new_student["enrolled_courses"] = []
-
-    students.append(new_student)
-    return {"ok": True, "data": students, "errors": []}
-
-
-def update_student(students: list, student_id: str, update_data: dict) -> dict:
-    """功能：修改學生資料"""
-    target_student = next((s for s in students if s["student_id"] == student_id), None)
-    if not target_student:
-        return {"ok": False, "data": students, "errors": [f"找不到學號 {student_id}"]}
-
-    merged_student = target_student.copy()
-    merged_student.update(update_data)
-
-    errors = validate_student(merged_student)
-    if errors:
-        return {"ok": False, "data": students, "errors": errors}
-
-    target_student.update(update_data)
-    return {"ok": True, "data": students, "errors": []}
-
-
-def remove_student(students: list, student_id: str) -> dict:
-    """功能：刪除學生 (尚有選課時禁止刪除)"""
-    target_student = next((s for s in students if s["student_id"] == student_id), None)
-    if not target_student:
-        return {"ok": False, "data": students, "errors": [f"找不到學號 {student_id}"]}
-
-    if target_student.get("enrolled_courses"):
-        return {"ok": False, "data": students, "errors": [f"學生 {student_id} 尚有選修課程，請先執行退選程序"]}
-
-    students.remove(target_student)
-    return {"ok": True, "data": students, "errors": []}
-
-
-def find_students(students: list, student_id: str = None, name: str = None, department: str = None) -> dict:
-    """功能：綜合多條件查詢學生"""
-    results = students.copy()
-
-    if student_id:
-        results = [s for s in results if s["student_id"] == student_id]
-    if name:
-        results = [s for s in results if name in s.get("name", "")]
-    if department:
-        results = [s for s in results if department in s.get("department", "")]
-
-    return {"ok": True, "data": results, "errors": []}
+def find_courses_by_remaining_capacity(courses, min_remaining, enrollments=None):
+    return find_courses(courses, min_remaining=min_remaining, enrollments=enrollments)

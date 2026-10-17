@@ -1,72 +1,64 @@
-# modules/validation.py
+"""Validation for the current F1 JSON schema; return all record errors."""
 
-def validate_course(course: dict, classrooms: list = None) -> list[str]:
+
+def positive_integer(value):
+    """Exclude bool, which Python otherwise treats as an integer."""
+    return type(value) is int and value > 0
+
+
+def validate_course(course, classrooms=None):
+    """Validate a course against room objects or an explicit list of room IDs."""
+    if not isinstance(course, dict):
+        return ['課程必須為物件。']
     errors = []
-    
-    #檢查必要欄位與資料型別
-    course_id = course.get("course_id")
-    name = course.get("name")
-    credits_val = course.get("credits")
-    capacity_val = course.get("capacity")
-    time_slots = course.get("time_slots", [])
-    classroom = course.get("classroom")
-    
-    if not course_id or not isinstance(course_id, str):
-        errors.append("課程代號不得為空或型別錯誤。")
-    if not name or not isinstance(name, str):
-        errors.append("課程名稱不得為空或型別錯誤。")
-        
-    # 2. 檢查學分是否為正整數
-    if not isinstance(credits_val, int) or isinstance_bool(credits_val) or credits_val <= 0:
-        errors.append("學分必須為正整數。")
-        
-    # 3. 檢查人數上限不得小於 1
-    if not isinstance(capacity_val, int) or isinstance_bool(capacity_val) or capacity_val < 1:
-        errors.append("課程人數上限不得小於 1。")
-        
-    # 4. 檢查星期與節次格式 (星期 1-7，節次 1-9, a, b, c)
-    valid_periods = set([str(i) for i in range(1, 10)] + ['a', 'b', 'c'])
-    if not isinstance(time_slots, list):
-        errors.append("上課時段格式錯誤。")
+    fields = {'course_id', 'name', 'credits', 'course_type', 'teacher', 'capacity',
+              'classroom', 'time_slots'}
+    unknown = set(course) - fields
+    if unknown:
+        errors.append(f'不支援的課程欄位：{sorted(unknown)}')
+    for key in ('course_id', 'name', 'teacher', 'classroom'):
+        if not isinstance(course.get(key), str) or not course[key].strip():
+            errors.append(f'{key} 必須為非空字串。')
+    for key in ('credits', 'capacity'):
+        if not positive_integer(course.get(key)):
+            errors.append(f'{key}（學分或人數上限）必須為正整數。')
+    if course.get('course_type') not in ('必修', '選修'):
+        errors.append('必選修必須為必修或選修。')
+    slots = course.get('time_slots')
+    if not isinstance(slots, list) or not slots:
+        errors.append('至少需要一個上課時段。')
     else:
-        for slot in time_slots:
+        seen = []
+        for slot in slots:
             if not isinstance(slot, (list, tuple)) or len(slot) != 2:
-                errors.append(f"不合法的時段結構: {slot}")
+                errors.append(f'無效時段結構：{slot}')
                 continue
             day, period = slot
-            if not isinstance(day, int) or not (1 <= day <= 7):
-                errors.append(f"不合法的星期格式: {day} (必須為 1-7)")
-            if period not in valid_periods:
-                errors.append(f"不合法的節次格式: {period} (支援 1-9, a, b, c)")
-                
-    # 5. 教室驗證 (若有提供可用教室清單)
-    if classrooms is not None and classroom not in classrooms:
-        errors.append(f"教室 {classroom} 不存在或未納入配置。")
-        
+            if type(day) is not int or not 1 <= day <= 7:
+                errors.append(f'無效星期：{day}')
+            if not isinstance(period, str) or period not in '123456789abc' or len(period) != 1:
+                errors.append(f'無效節次：{period}')
+            if slot in seen:
+                errors.append(f'重複時段：{slot}')
+            seen.append(slot)
+    if classrooms is not None:
+        ids = [row.get('classroom_id') if isinstance(row, dict) else row for row in classrooms]
+        if course.get('classroom') not in ids:
+            errors.append('教室不存在。')
     return errors
 
 
-def validate_student(student: dict) -> list[str]:
-    """
-    驗證學生資料是否合法。
-    回傳所有驗證問題的字串清單；空清單表示驗證通過。
-    """
+def validate_student(student):
+    """Require student identity, department/year label, and a credit limit."""
+    if not isinstance(student, dict):
+        return ['學生必須為物件。']
     errors = []
-    
-    student_id = student.get("student_id")
-    name = student.get("name")
-    max_credits = student.get("max_credits", 25)
-    
-    if not student_id or not isinstance(student_id, str):
-        errors.append("學號不得為空或型別錯誤。")
-    if not name or not isinstance(name, str):
-        errors.append("學生姓名不得為空或型別錯誤。")
-    if not isinstance(max_credits, int) or isinstance_bool(max_credits) or max_credits <= 0:
-        errors.append("學分上限必須為正整數。")
-        
+    unknown = set(student) - {'student_id', 'name', 'department', 'max_credits'}
+    if unknown:
+        errors.append(f'不支援的學生欄位：{sorted(unknown)}')
+    for key in ('student_id', 'name', 'department'):
+        if not isinstance(student.get(key), str) or not student[key].strip():
+            errors.append(f'{key} 必須為非空字串。')
+    if not positive_integer(student.get('max_credits')):
+        errors.append('學分上限必須為正整數。')
     return errors
-
-
-def isinstance_bool(val) -> bool:
-    #bool 是 int 的子類別，需要排除
-    return isinstance(val, bool)

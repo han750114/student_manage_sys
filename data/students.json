@@ -3,105 +3,90 @@
         "student_id": "S001",
         "name": "王小明",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S002",
         "name": "李小華",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S003",
         "name": "張雅婷",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S004",
         "name": "陳志豪",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S005",
         "name": "林怡君",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S006",
         "name": "黃俊傑",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S007",
         "name": "吳美玲",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S008",
         "name": "劉建宏",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S009",
         "name": "蔡宜珊",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S010",
         "name": "楊宗翰",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S011",
         "name": "許雅萍",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S012",
         "name": "鄭凱文",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S013",
         "name": "謝佳蓉",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S014",
         "name": "郭家豪",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     },
     {
         "student_id": "S015",
         "name": "洪郁婷",
         "department": "資訊工程系",
-        "max_credits": 25,
-        "enrolled_courses": []
+        "max_credits": 25
     }
 ]
