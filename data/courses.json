@@ -1,1 +1,222 @@
-[]
+[
+    {
+        "course_id": "CS101",
+        "name": "Python程式設計",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "張老師",
+        "capacity": 50,
+        "classroom": "C101",
+        "time_slots": [[1, "3"], [1, "4"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS102",
+        "name": "資料結構",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "李老師",
+        "capacity": 40,
+        "classroom": "C102",
+        "time_slots": [[2, "1"], [2, "2"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS103",
+        "name": "演算法",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "王老師",
+        "capacity": 30,
+        "classroom": "C103",
+        "time_slots": [[3, "3"], [3, "4"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS104",
+        "name": "物件導向程式設計",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "趙老師",
+        "capacity": 50,
+        "classroom": "C101",
+        "time_slots": [[4, "5"], [4, "6"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS105",
+        "name": "資料庫系統",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "周老師",
+        "capacity": 40,
+        "classroom": "C102",
+        "time_slots": [[5, "1"], [5, "2"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS106",
+        "name": "作業系統",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "吳老師",
+        "capacity": 45,
+        "classroom": "C104",
+        "time_slots": [[1, "7"], [1, "8"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS107",
+        "name": "計算機組織",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "鄭老師",
+        "capacity": 45,
+        "classroom": "C104",
+        "time_slots": [[2, "3"], [2, "4"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS108",
+        "name": "網路工程概論",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "黃老師",
+        "capacity": 40,
+        "classroom": "C102",
+        "time_slots": [[3, "7"], [3, "8"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS109",
+        "name": "軟體工程",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "陳老師",
+        "capacity": 35,
+        "classroom": "C103",
+        "time_slots": [[4, "2"], [4, "3"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS110",
+        "name": "資訊安全導論",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "許老師",
+        "capacity": 30,
+        "classroom": "C103",
+        "time_slots": [[5, "5"], [5, "6"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS111",
+        "name": "人工智慧概論",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "張老師",
+        "capacity": 50,
+        "classroom": "C101",
+        "time_slots": [[1, "a"], [1, "b"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS112",
+        "name": "機器學習",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "李老師",
+        "capacity": 35,
+        "classroom": "C102",
+        "time_slots": [[2, "5"], [2, "6"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS113",
+        "name": "行動應用程式開發",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "王老師",
+        "capacity": 40,
+        "classroom": "C104",
+        "time_slots": [[3, "1"], [3, "2"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS114",
+        "name": "網頁程式設計",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "趙老師",
+        "capacity": 50,
+        "classroom": "C101",
+        "time_slots": [[4, "7"], [4, "8"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS115",
+        "name": "雲端運算架構",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "周老師",
+        "capacity": 35,
+        "classroom": "C105",
+        "time_slots": [[5, "3"], [5, "4"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS116",
+        "name": "數位邏輯設計",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "吳老師",
+        "capacity": 45,
+        "classroom": "C104",
+        "time_slots": [[1, "1"], [1, "2"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS117",
+        "name": "微處理機原理",
+        "credits": 3,
+        "course_type": "必修",
+        "teacher": "鄭老師",
+        "capacity": 40,
+        "classroom": "C102",
+        "time_slots": [[2, "7"], [2, "8"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS118",
+        "name": "編譯器設計",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "黃老師",
+        "capacity": 25,
+        "classroom": "C105",
+        "time_slots": [[3, "5"], [3, "6"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS119",
+        "name": "分散式系統",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "陳老師",
+        "capacity": 30,
+        "classroom": "C103",
+        "time_slots": [[4, "3"], [4, "4"]],
+        "enrolled_students": []
+    },
+    {
+        "course_id": "CS120",
+        "name": "深度學習實務",
+        "credits": 3,
+        "course_type": "選修",
+        "teacher": "許老師",
+        "capacity": 35,
+        "classroom": "C105",
+        "time_slots": [[5, "7"], [5, "8"]],
+        "enrolled_students": []
+    }
+]

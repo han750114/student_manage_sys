@@ -1,1 +1,7 @@
-[]
+[
+    { "classroom_id": "C101", "capacity": 50 },
+    { "classroom_id": "C102", "capacity": 40 },
+    { "classroom_id": "C103", "capacity": 30 },
+    { "classroom_id": "C104", "capacity": 60 },
+    { "classroom_id": "C105", "capacity": 25 }
+]
