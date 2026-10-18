@@ -26,7 +26,7 @@ def read_fields(kind, updating=False):
                 raise ValueError(f'{label}請輸入整數。') from None
         elif key == 'time_slots':
             try:
-                # by UncleAmra: strip spaces and lowercase the period so "2:A" or "1: 3" are accepted
+                
                 values[key] = [[int(day), period.strip().lower()] for day, period in
                                (part.strip().split(':') for part in text.split(','))]
             except ValueError:
@@ -78,7 +78,7 @@ def query(kind, data):
     for key, label in fields:
         value = input(f'{label}（留空不限）：').strip()
         if value:
-            # by UncleAmra: show a friendly message instead of Python's int() error for non-numeric input
+            # by UncleAmra show a message instead of python int() error 
             try:
                 filters[key] = int(value) if key in ('weekday', 'min_remaining') else value
             except ValueError:
