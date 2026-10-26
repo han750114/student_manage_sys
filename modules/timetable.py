@@ -116,18 +116,77 @@ def find_course_slots(timetable, course_id):
     return _result(slots, [])
 
 
-def find_free_slots(timetable, query):
-    """Find runs of consecutive free periods.
+def find_free_slots(timetable, query=None):
+    """Find runs of consecutive free periods (each day checked separately).
 
-    query (optional keys): "days", "start_period", "end_period", "min_length".
+    query (optional keys): "days" (list, default 1-7), "start_period",
+    "end_period" (default "1" and "c"), "min_length" (default 1).
     Output: [{"day": 2, "start": "5", "end": "7", "length": 3}, ...]
     """
-    # TODO: validate query; count consecutive None per day.
-    # Trap: a run that reaches end_period must still be recorded.
-    pass
+    query = query or {}
+    days = query.get("days", list(range(1, DAYS + 1)))
+    start = query.get("start_period", PERIODS[0])
+    end = query.get("end_period", PERIODS[-1])
+    min_length = query.get("min_length", 1)
+
+    errors = []
+    if not isinstance(days, list) or any(day_to_index(d) is None for d in days):
+        errors.append(f"無效星期：{days}")
+    start_row, end_row = period_to_index(start), period_to_index(end)
+    if start_row is None or end_row is None:
+        errors.append(f"無效節次：{start}～{end}")
+    elif start_row > end_row:
+        errors.append(f"開始節次不可晚於結束節次：{start}～{end}")
+    if type(min_length) is not int or min_length < 1:
+        errors.append(f"最少連續節數須為正整數：{min_length}")
+    if errors:
+        return _result(None, errors)
+
+    runs = []
+    for day in sorted(set(days)):
+        col = day_to_index(day)
+        run_start = None
+        # Go one step past end_row so a run touching the end is still closed.
+        for row in range(start_row, end_row + 2):
+            free = row <= end_row and timetable[row][col] is None
+            if free and run_start is None:
+                run_start = row
+            elif not free and run_start is not None:
+                length = row - run_start
+                if length >= min_length:
+                    runs.append({"day": day, "start": PERIODS[run_start],
+                                 "end": PERIODS[row - 1], "length": length})
+                run_start = None
+    return _result(runs, [])
 
 
 def summarize_timetable(student_id, data, timetable):
-    """Return periods per day and weekly credits (free periods: pending)."""
-    # TODO: credits count once per course, not once per slot.
-    pass
+    """Return periods per day, weekly credits and gap periods per day.
+
+    Gap periods = free periods between the first and last class of a day
+    (provisional definition, pending team confirmation).
+    """
+    periods_per_day = {}
+    gaps_per_day = {}
+    for col in range(DAYS):
+        used_rows = [row for row in range(len(PERIODS)) if timetable[row][col] is not None]
+        periods_per_day[col + 1] = len(used_rows)
+        if len(used_rows) < 2:
+            gaps_per_day[col + 1] = 0
+        else:
+            span = used_rows[-1] - used_rows[0] + 1
+            gaps_per_day[col + 1] = span - len(used_rows)
+
+    courses = {c.get("course_id"): c for c in data.get("courses", [])}
+    credits = 0
+    for course_id in get_student_course_ids(student_id, data.get("enrollments", [])):
+        course = courses.get(course_id)
+        if course is not None and type(course.get("credits")) is int:
+            credits += course["credits"]
+
+    return _result({
+        "periods_per_day": periods_per_day,
+        "total_periods": sum(periods_per_day.values()),
+        "weekly_credits": credits,
+        "gaps_per_day": gaps_per_day,
+    }, [])
