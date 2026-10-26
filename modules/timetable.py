@@ -53,24 +53,67 @@ def build_timetable(student_id, data, week_start=None):
     Errors: unknown student, missing course, invalid time slot.
     """
     errors = []
-    # TODO 1: unknown student -> return _result(None, ["學生不存在：" + student_id])
-    # TODO 2: course IDs from get_student_course_ids()
-    # TODO 3: dict course_id -> course
-    # TODO 4: grid = create_empty_timetable()
-    # TODO 5: fill grid[row][col] for each [day, period]; what if already occupied?
-    pass
+    students = data.get("students", [])
+    if not any(s.get("student_id") == student_id for s in students):
+        return _result(None, ["學生不存在：" + str(student_id)])
+
+    course_ids = get_student_course_ids(student_id, data.get("enrollments", []))
+    courses = {c.get("course_id"): c for c in data.get("courses", [])}
+    grid = create_empty_timetable()
+
+    for course_id in course_ids:
+        course = courses.get(course_id)
+        if course is None:
+            errors.append(f"課程不存在：{course_id}")
+            continue
+        for slot in course.get("time_slots", []):
+            if not isinstance(slot, (list, tuple)) or len(slot) != 2:
+                errors.append(f"{course_id} 時段格式錯誤：{slot}")
+                continue
+            day, period = slot
+            row, col = period_to_index(period), day_to_index(day)
+            if row is None or col is None:
+                errors.append(f"{course_id} 無效時段：{slot}")
+                continue
+            if grid[row][col] is not None:
+                other = grid[row][col]["id"]
+                errors.append(f"時段衝突：星期{day}第{period}節 {other} 與 {course_id}")
+                continue
+            grid[row][col] = {"kind": "course", "id": course_id, "name": course.get("name")}
+
+    return _result(grid, errors)
 
 
 def get_cell(timetable, day, period):
-    """Return what occupies (day, period); None if free."""
-    # TODO
-    pass
+    """Return what occupies (day, period); data is None if free."""
+    row, col = period_to_index(period), day_to_index(day)
+    if row is None or col is None:
+        return _result(None, [f"無效時段：星期{day}第{period}節"])
+    return _result(timetable[row][col], [])
+
+
+def get_day(timetable, day):
+    """Return [(period, cell), ...] for every occupied period of one day."""
+    col = day_to_index(day)
+    if col is None:
+        return _result(None, [f"無效星期：{day}"])
+    used = []
+    for row, period in enumerate(PERIODS):
+        cell = timetable[row][col]
+        if cell is not None:
+            used.append((period, cell))
+    return _result(used, [])
 
 
 def find_course_slots(timetable, course_id):
     """Return all (day, period) of course_id, ordered by day then period."""
-    # TODO: loop days outside, periods inside.
-    pass
+    slots = []
+    for col in range(DAYS):
+        for row in range(len(PERIODS)):
+            cell = timetable[row][col]
+            if cell is not None and cell.get("id") == course_id:
+                slots.append((col + 1, PERIODS[row]))
+    return _result(slots, [])
 
 
 def find_free_slots(timetable, query):
