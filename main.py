@@ -26,7 +26,8 @@ def read_fields(kind, updating=False):
                 raise ValueError(f'{label}請輸入整數。') from None
         elif key == 'time_slots':
             try:
-                values[key] = [[int(day), period] for day, period in
+                
+                values[key] = [[int(day), period.strip().lower()] for day, period in
                                (part.strip().split(':') for part in text.split(','))]
             except ValueError:
                 raise ValueError('時段格式為 星期:節次，以逗號分隔。') from None
@@ -77,7 +78,11 @@ def query(kind, data):
     for key, label in fields:
         value = input(f'{label}（留空不限）：').strip()
         if value:
-            filters[key] = int(value) if key in ('weekday', 'min_remaining') else value
+            # by UncleAmra show a message instead of python int() error 
+            try:
+                filters[key] = int(value) if key in ('weekday', 'min_remaining') else value
+            except ValueError:
+                raise ValueError(f'{label}請輸入整數。') from None
     if kind == 'courses':
         result = management.find_courses(data[kind], **filters, enrollments=data['enrollments'])
     else:
