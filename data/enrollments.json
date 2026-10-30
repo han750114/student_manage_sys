@@ -1,1 +1,6 @@
-[]
+[
+    {
+        "student_id": "S002",
+        "course_id": "CS114"
+    }
+]

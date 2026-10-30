@@ -4,7 +4,8 @@ timetable[period_index][day_index]; empty cell = None.
 Functions return {"ok", "data", "errors"} like F1.
 """
 
-PERIODS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c")
+from .scheduling import PERIODS, intervals_overlap, project_activities, time_minutes
+
 DAYS = 7
 
 
@@ -44,15 +45,34 @@ def get_student_course_ids(student_id, enrollments):
     return course_ids
 
 
-def build_timetable(student_id, data, week_start=None):
+def build_timetable(student_id, data, week_start=None, period_times=None):
     """Build one student's weekly timetable.
 
     Input: student_id; data with "students", "courses", "enrollments";
-           week_start reserved for activities (pending team decision).
-    Output: 12 x 7 grid, cell = {"kind": "course", "id": ..., "name": ...}.
+           week_start (Monday YYYY-MM-DD) and explicit period_times for activities.
+    Output: 12 x 7 grid, cell = {"kind": "course"/"activity", "id", "name"}.
+            Multiple activities in one period are retained in cell["items"].
     Errors: unknown student, missing course, invalid time slot.
     """
     errors = []
+    if not isinstance(data, dict):
+        return _result(None, ["系統資料須為字典。"])
+    for key in ("students", "courses", "enrollments", "activities"):
+        rows = data.get(key, [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            errors.append(f"{key} 須為物件清單。")
+    if errors:
+        return _result(None, errors)
+    for key, identifier in (("students", "student_id"), ("courses", "course_id")):
+        if any(not isinstance(row.get(identifier), str) or not row[identifier].strip()
+               for row in data.get(key, [])):
+            errors.append(f"{key} 代號須為非空字串。")
+    for record in data.get("enrollments", []):
+        if any(not isinstance(record.get(key), str) or not record[key].strip()
+               for key in ("student_id", "course_id")):
+            errors.append("選課紀錄須包含有效學號與課程代號。")
+    if errors:
+        return _result(None, errors)
     students = data.get("students", [])
     if not any(s.get("student_id") == student_id for s in students):
         return _result(None, ["學生不存在：" + str(student_id)])
@@ -66,7 +86,11 @@ def build_timetable(student_id, data, week_start=None):
         if course is None:
             errors.append(f"課程不存在：{course_id}")
             continue
-        for slot in course.get("time_slots", []):
+        slots = course.get("time_slots")
+        if not isinstance(slots, list) or not slots:
+            errors.append(f"{course_id} 缺少有效上課時段。")
+            continue
+        for slot in slots:
             if not isinstance(slot, (list, tuple)) or len(slot) != 2:
                 errors.append(f"{course_id} 時段格式錯誤：{slot}")
                 continue
@@ -81,6 +105,30 @@ def build_timetable(student_id, data, week_start=None):
                 continue
             grid[row][col] = {"kind": "course", "id": course_id, "name": course.get("name")}
 
+    activities, problems = project_activities(data.get("activities", []), period_times,
+                                             week_start, require_week=True)
+    errors.extend(problems)
+    for activity in activities:
+        if student_id not in activity["participant_ids"]:
+            continue
+        for day, period in activity["time_slots"]:
+            row, col = period_to_index(period), day_to_index(day)
+            cell = dict(kind="activity", id=activity["activity_id"], name=activity["name"],
+                        date=activity["date"], start_time=activity["start_time"],
+                        end_time=activity["end_time"])
+            existing = grid[row][col]
+            if existing is None:
+                grid[row][col] = cell
+                continue
+            items = existing.get("items", [existing])
+            for other in items:
+                overlap = other["kind"] == "course" or intervals_overlap(
+                    time_minutes(other["start_time"]), time_minutes(other["end_time"]),
+                    time_minutes(cell["start_time"]), time_minutes(cell["end_time"]))
+                if overlap:
+                    errors.append(f'時段衝突：星期{day}第{period}節 {other["id"]} 與 {cell["id"]}')
+            # Preserve courses as the primary cell and retain all additional items.
+            grid[row][col] = {**existing, "items": [*items, cell]}
     return _result(grid, errors)
 
 
@@ -111,7 +159,7 @@ def find_course_slots(timetable, course_id):
     for col in range(DAYS):
         for row in range(len(PERIODS)):
             cell = timetable[row][col]
-            if cell is not None and cell.get("id") == course_id:
+            if cell is not None and cell.get("kind") == "course" and cell.get("id") == course_id:
                 slots.append((col + 1, PERIODS[row]))
     return _result(slots, [])
 
@@ -123,7 +171,9 @@ def find_free_slots(timetable, query=None):
     "end_period" (default "1" and "c"), "min_length" (default 1).
     Output: [{"day": 2, "start": "5", "end": "7", "length": 3}, ...]
     """
-    query = query or {}
+    query = {} if query is None else query
+    if not isinstance(query, dict):
+        return _result(None, ["空閒查詢條件須為字典。"])
     days = query.get("days", list(range(1, DAYS + 1)))
     start = query.get("start_period", PERIODS[0])
     end = query.get("end_period", PERIODS[-1])
@@ -163,19 +213,20 @@ def find_free_slots(timetable, query=None):
 def summarize_timetable(student_id, data, timetable):
     """Return periods per day, weekly credits and gap periods per day.
 
-    Gap periods = free periods between the first and last class of a day
-    (provisional definition, pending team confirmation).
+    Gap periods = unoccupied periods between the first and last course of a day.
+    Activities block free periods but do not add course periods or credits.
     """
     periods_per_day = {}
     gaps_per_day = {}
     for col in range(DAYS):
-        used_rows = [row for row in range(len(PERIODS)) if timetable[row][col] is not None]
+        used_rows = [row for row in range(len(PERIODS))
+                     if timetable[row][col] is not None and timetable[row][col]["kind"] == "course"]
         periods_per_day[col + 1] = len(used_rows)
         if len(used_rows) < 2:
             gaps_per_day[col + 1] = 0
         else:
-            span = used_rows[-1] - used_rows[0] + 1
-            gaps_per_day[col + 1] = span - len(used_rows)
+            gaps_per_day[col + 1] = sum(timetable[row][col] is None
+                                         for row in range(used_rows[0], used_rows[-1] + 1))
 
     courses = {c.get("course_id"): c for c in data.get("courses", [])}
     credits = 0

@@ -1,5 +1,9 @@
 # F1 implementation and interfaces
 
+> 2026-10-30: F2/F3 integration extends the CLI and activity validation described
+> below. See [f2_f3_interfaces.md](f2_f3_interfaces.md) for those current behaviors;
+> the F1 course/student/enrollment field formats and atomic save contract remain.
+
 Updated 2026-10-17 after the user requested fixes and CLI integration. These are
 implementation choices, not a claim of a team meeting or teammate approval.
 
