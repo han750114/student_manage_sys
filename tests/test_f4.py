@@ -2,7 +2,7 @@
 import unittest
 from copy import deepcopy
 
-from modules.activities import check_room
+from modules.activities import check_room, find_available_classrooms
 
 
 def period_times():
@@ -99,6 +99,62 @@ class TestCheckRoom(unittest.TestCase):
         before = deepcopy((act, self.room, self.data))
         self.check(act)
         self.assertEqual(before, (act, self.room, self.data))
+
+
+class TestFindAvailableClassrooms(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [
+            {"classroom_id": "C101", "capacity": 50, "equipment": ["projector"]},
+            {"classroom_id": "C102", "capacity": 40, "equipment": ["projector"]},
+            {"classroom_id": "C105", "capacity": 25},
+        ]
+        self.data = {
+            "courses": [{"course_id": "CS101", "name": "Python", "classroom": "C101",
+                         "time_slots": [[1, "3"], [1, "4"]]}],
+            "activities": [],
+        }
+        self.times = period_times()
+
+    def find(self, act, rooms=None):
+        return find_available_classrooms(act, rooms or self.rooms, self.data, self.times)
+
+    # Normal
+    def test_lists_usable_rooms_smallest_first(self):
+        result = self.find(activity())
+        self.assertTrue(result["ok"])
+        self.assertEqual([r["classroom_id"] for r in result["data"]["available"]],
+                         ["C102", "C101"])
+
+    def test_unusable_rooms_keep_their_reasons(self):
+        result = self.find(activity())
+        self.assertEqual(result["data"]["unavailable"],
+                         [{"classroom_id": "C105",
+                           "reasons": ["容量不足：教室 25 人，活動需要 30 人",
+                                       "缺少設備：projector"]}])
+
+    # Boundary
+    def test_only_one_room_fits(self):
+        result = self.find(activity(capacity=45))
+        self.assertEqual([r["classroom_id"] for r in result["data"]["available"]], ["C101"])
+
+    def test_course_clash_removes_room(self):
+        result = self.find(activity(start_time="10:00", end_time="10:30"))
+        self.assertEqual([r["classroom_id"] for r in result["data"]["available"]], ["C102"])
+
+    # Error
+    def test_no_room_fits_lists_every_unmet_condition(self):
+        result = self.find(activity(capacity=60))
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["data"]["available"], [])
+        self.assertEqual(result["errors"][0], "沒有符合條件的教室。")
+        self.assertIn("C101：容量不足：教室 50 人，活動需要 60 人", result["errors"])
+        self.assertIn("C105：缺少設備：projector", result["errors"])
+
+    def test_inputs_are_not_modified(self):
+        before = deepcopy((self.rooms, self.data))
+        result = self.find(activity())
+        result["data"]["available"][0]["capacity"] = 999
+        self.assertEqual(before, (self.rooms, self.data))
 
 
 if __name__ == "__main__":

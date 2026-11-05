@@ -20,6 +20,8 @@ assign_classroom(activity, classroom_id, classrooms, courses, activities) -> dic
 操作失敗時不得修改原始資料。
 """
 
+from copy import deepcopy
+
 from .scheduling import intervals_overlap, project_activities, time_minutes
 from .validation import positive_integer
 
@@ -73,3 +75,28 @@ def check_room(activity, room, data, period_times):
             errors.append(f"與活動衝突：{other['activity_id']} {other['name']} "
                           f"{other['start_time']}-{other['end_time']}")
     return errors
+
+
+def find_available_classrooms(activity, classrooms, data, period_times):
+    """Split rooms into usable ones and unusable ones with their reasons.
+
+    Returns {ok, data, errors}. data = {"available": [rooms, smallest first],
+    "unavailable": [{"classroom_id", "reasons"}]}. ok is False when no room fits,
+    and errors then lists every room's unmet conditions. Inputs are never modified.
+    """
+    available, unavailable = [], []
+    for room in classrooms:
+        reasons = check_room(activity, room, data, period_times)
+        if reasons:
+            unavailable.append({"classroom_id": room["classroom_id"], "reasons": reasons})
+        else:
+            available.append(deepcopy(room))
+    available.sort(key=lambda room: room["capacity"])
+    errors = []
+    if not available:
+        errors.append("沒有符合條件的教室。")
+        for row in unavailable:
+            errors.extend(f"{row['classroom_id']}：{reason}" for reason in row["reasons"])
+    return {"ok": not errors,
+            "data": {"available": available, "unavailable": unavailable},
+            "errors": errors}
