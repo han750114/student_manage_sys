@@ -2,8 +2,8 @@
 import unittest
 from copy import deepcopy
 
-from modules.activities import check_room, find_available_classrooms
-
+from modules.activities import (add_activity, cancel_activity, check_room,
+                               find_available_classrooms, update_activity)
 
 def period_times():
     """Synthetic test clocks (period 1 = 08:00-08:50, ...); not a school timetable."""
@@ -156,6 +156,95 @@ class TestFindAvailableClassrooms(unittest.TestCase):
         result["data"]["available"][0]["capacity"] = 999
         self.assertEqual(before, (self.rooms, self.data))
 
+class TestActivityManagement(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "classrooms": [{"classroom_id": "C101", "capacity": 50, "equipment": ["projector"]},
+                           {"classroom_id": "C102", "capacity": 40, "equipment": ["projector"]}],
+            "courses": [{"course_id": "CS101", "name": "Python", "classroom": "C101",
+                         "time_slots": [[1, "3"], [1, "4"]]}],
+            "students": [{"student_id": "S001"}, {"student_id": "S002"}],
+            "activities": [activity(activity_id="A2", name="社團",
+                                    start_time="08:00", end_time="08:20")],
+        }
+        self.times = period_times()
+
+    def add(self, act):
+        return add_activity(act, self.data, self.times)
+
+    # add_activity
+    def test_add_returns_new_list_and_keeps_input(self):
+        before = deepcopy(self.data)
+        result = self.add(activity())
+        self.assertTrue(result["ok"])
+        self.assertEqual([a["activity_id"] for a in result["data"]], ["A2", "A1"])
+        self.assertEqual(before, self.data)
+
+    def test_add_duplicate_id(self):
+        result = self.add(activity(activity_id="A2", start_time="12:00", end_time="13:00"))
+        self.assertFalse(result["ok"])
+        self.assertIn("活動代號已存在。", result["errors"])
+
+    def test_add_unknown_room(self):
+        self.assertIn("教室不存在。", self.add(activity(classroom_id="X999"))["errors"])
+
+    def test_add_unknown_student(self):
+        result = self.add(activity(participant_ids=["S001", "S999"]))
+        self.assertIn("學生不存在：S999", result["errors"])
+
+    def test_add_participants_equal_to_capacity_is_allowed(self):
+        self.assertTrue(self.add(activity(capacity=2, participant_ids=["S001", "S002"]))["ok"])
+
+    def test_add_participants_over_capacity(self):
+        result = self.add(activity(capacity=1, participant_ids=["S001", "S002"]))
+        self.assertIn("報名人數 2 超過活動容量 1。", result["errors"])
+
+    def test_add_room_clash_is_rejected(self):
+        result = self.add(activity(start_time="08:10"))
+        self.assertEqual(result["errors"], ["與活動衝突：A2 社團 08:00-08:20"])
+
+    def test_add_invalid_time(self):
+        self.assertFalse(self.add(activity(start_time="25:00"))["ok"])
+
+    # cancel_activity
+    def test_cancel_marks_cancelled_without_deleting(self):
+        result = cancel_activity("A2", self.data)
+        self.assertEqual(len(result["data"]), 1)
+        self.assertEqual(result["data"][0]["status"], "cancelled")
+        self.assertEqual(self.data["activities"][0]["status"], "scheduled")
+
+    def test_cancel_unknown_or_twice(self):
+        self.assertEqual(cancel_activity("A9", self.data)["errors"], ["找不到指定活動。"])
+        self.data["activities"] = cancel_activity("A2", self.data)["data"]
+        self.assertEqual(cancel_activity("A2", self.data)["errors"], ["活動已取消。"])
+
+    def test_cancelled_activity_frees_the_room(self):
+        self.assertFalse(self.add(activity(start_time="08:10"))["ok"])
+        self.data["activities"] = cancel_activity("A2", self.data)["data"]
+        self.assertTrue(self.add(activity(start_time="08:10"))["ok"])
+
+    # update_activity
+    def test_update_time_without_self_conflict(self):
+        result = update_activity("A2", {"end_time": "08:40"}, self.data, self.times)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["data"][0]["end_time"], "08:40")
+        self.assertEqual(self.data["activities"][0]["end_time"], "08:20")
+
+    def test_update_into_course_clash_is_rejected(self):
+        result = update_activity("A2", {"start_time": "10:00", "end_time": "10:30"},
+                                 self.data, self.times)
+        self.assertEqual(result["errors"], ["與課程衝突：星期1第3節 CS101 Python"])
+
+    def test_update_cannot_change_id_or_unknown(self):
+        self.assertEqual(update_activity("A2", {"activity_id": "A3"}, self.data,
+                                         self.times)["errors"], ["活動代號不可修改。"])
+        self.assertEqual(update_activity("A9", {}, self.data, self.times)["errors"],
+                         ["找不到指定活動。"])
+
+    def test_update_cancelled_activity_is_rejected(self):
+        self.data["activities"] = cancel_activity("A2", self.data)["data"]
+        result = update_activity("A2", {"name": "新名稱"}, self.data, self.times)
+        self.assertEqual(result["errors"], ["已取消的活動不可修改。"])
 
 if __name__ == "__main__":
     unittest.main()

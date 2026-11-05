@@ -22,7 +22,7 @@ assign_classroom(activity, classroom_id, classrooms, courses, activities) -> dic
 
 from copy import deepcopy
 
-from .scheduling import intervals_overlap, project_activities, time_minutes
+from .scheduling import intervals_overlap, project_activities, time_minutes, validate_activity
 from .validation import positive_integer
 
 
@@ -100,3 +100,76 @@ def find_available_classrooms(activity, classrooms, data, period_times):
     return {"ok": not errors,
             "data": {"available": available, "unavailable": unavailable},
             "errors": errors}
+
+
+def _result(data, errors=()):
+    """Build the shared {ok, data, errors} result used across the project."""
+    return {"ok": not errors, "data": data, "errors": list(errors)}
+
+
+def _check_activity(activity, data, period_times):
+    """Return every reason activity cannot be saved as it is; [] means valid."""
+    errors = validate_activity(activity)
+    rooms = {room["classroom_id"]: room for room in data["classrooms"]}
+    room = rooms.get(activity.get("classroom_id"))
+    if activity.get("classroom_id") and room is None:
+        errors.append("教室不存在。")
+    student_ids = {s["student_id"] for s in data["students"]}
+    participants = activity.get("participant_ids")
+    if isinstance(participants, list):
+        unknown = [p for p in participants if p not in student_ids]
+        if unknown:
+            errors.append(f"學生不存在：{', '.join(map(str, unknown))}")
+        need = activity.get("capacity")
+        if positive_integer(need) and len(participants) > need:
+            errors.append(f"報名人數 {len(participants)} 超過活動容量 {need}。")
+    if errors:
+        return errors
+    return check_room(activity, room, data, period_times)
+
+
+def add_activity(activity, data, period_times):
+    """Return a new activity list with activity added, or every reason it cannot be."""
+    if not isinstance(activity, dict):
+        return _result(None, ["活動必須為物件。"])
+    errors = []
+    if any(a["activity_id"] == activity.get("activity_id") for a in data["activities"]):
+        errors.append("活動代號已存在。")
+    errors.extend(_check_activity(activity, data, period_times))
+    if errors:
+        return _result(None, errors)
+    return _result(deepcopy(data["activities"]) + [deepcopy(activity)])
+
+
+def cancel_activity(activity_id, data):
+    """Return a new activity list with the activity marked cancelled (not deleted)."""
+    updated = deepcopy(data["activities"])
+    target = next((a for a in updated if a["activity_id"] == activity_id), None)
+    if target is None:
+        return _result(None, ["找不到指定活動。"])
+    if target["status"] == "cancelled":
+        return _result(None, ["活動已取消。"])
+    target["status"] = "cancelled"
+    return _result(updated)
+
+
+def update_activity(activity_id, updates, data, period_times):
+    """Return a new activity list with updates applied after re-checking every rule."""
+    if not isinstance(updates, dict):
+        return _result(None, ["修改內容必須為物件。"])
+    index = next((i for i, a in enumerate(data["activities"])
+                  if a["activity_id"] == activity_id), None)
+    if index is None:
+        return _result(None, ["找不到指定活動。"])
+    target = data["activities"][index]
+    if "activity_id" in updates and updates["activity_id"] != activity_id:
+        return _result(None, ["活動代號不可修改。"])
+    if target["status"] == "cancelled":
+        return _result(None, ["已取消的活動不可修改。"])
+    merged = {**target, **updates}
+    errors = _check_activity(merged, data, period_times)
+    if errors:
+        return _result(None, errors)
+    updated = deepcopy(data["activities"])
+    updated[index] = deepcopy(merged)
+    return _result(updated)
