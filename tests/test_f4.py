@@ -3,8 +3,8 @@ import unittest
 from copy import deepcopy
 
 from modules.activities import (add_activity, cancel_activity, check_room,
-                               find_available_classrooms, update_activity)
-
+                               find_activities, find_available_classrooms,
+                               register_participant, update_activity)
 def period_times():
     """Synthetic test clocks (period 1 = 08:00-08:50, ...); not a school timetable."""
     return {p: (f"{8 + i:02d}:00", f"{8 + i:02d}:50") for i, p in enumerate("123456789abc")}
@@ -246,5 +246,65 @@ class TestActivityManagement(unittest.TestCase):
         result = update_activity("A2", {"name": "新名稱"}, self.data, self.times)
         self.assertEqual(result["errors"], ["已取消的活動不可修改。"])
 
+class TestRegistrationAndSearch(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "students": [{"student_id": s} for s in ("S001", "S002", "S003")],
+            "activities": [
+                activity(activity_id="A1", capacity=2, participant_ids=["S001"]),
+                activity(activity_id="A2", name="社團", date="2026-11-10",
+                         classroom_id="C102", participant_ids=[]),
+                activity(activity_id="A3", start_time="13:00", end_time="14:00",
+                         participant_ids=["S002"], status="cancelled"),
+            ],
+        }
+
+    # register_participant
+    def test_register_adds_student_and_keeps_input(self):
+        result = register_participant("A1", "S002", self.data)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["data"][0]["participant_ids"], ["S001", "S002"])
+        self.assertEqual(self.data["activities"][0]["participant_ids"], ["S001"])
+
+    def test_many_students_until_full(self):
+        result = register_participant("A1", "S002", self.data)
+        self.data["activities"] = result["data"]
+        result = register_participant("A1", "S003", self.data)
+        self.assertEqual(result["errors"], ["活動已額滿（2 人）。"])
+
+    def test_register_duplicate(self):
+        result = register_participant("A1", "S001", self.data)
+        self.assertEqual(result["errors"], ["已報名此活動，不得重複報名。"])
+
+    def test_register_unknown_activity_or_student(self):
+        self.assertEqual(register_participant("A9", "S001", self.data)["errors"],
+                         ["找不到指定活動。"])
+        self.assertEqual(register_participant("A1", "S999", self.data)["errors"],
+                         ["學生不存在。"])
+
+    def test_register_cancelled_activity(self):
+        result = register_participant("A3", "S001", self.data)
+        self.assertEqual(result["errors"], ["活動已取消，無法報名。"])
+
+    # find_activities
+    def test_find_without_filters_sorted_by_date_and_time(self):
+        rows = find_activities(self.data["activities"])["data"]
+        self.assertEqual([a["activity_id"] for a in rows], ["A1", "A3", "A2"])
+
+    def test_find_by_date_room_status_and_student(self):
+        acts = self.data["activities"]
+        ids = lambda result: [a["activity_id"] for a in result["data"]]
+        self.assertEqual(ids(find_activities(acts, date="2026-11-10")), ["A2"])
+        self.assertEqual(ids(find_activities(acts, classroom_id="C102")), ["A2"])
+        self.assertEqual(ids(find_activities(acts, status="cancelled")), ["A3"])
+        self.assertEqual(ids(find_activities(acts, student_id="S002")), ["A3"])
+
+    def test_find_invalid_filters(self):
+        acts = self.data["activities"]
+        self.assertEqual(find_activities(acts, date="2026/11/10")["errors"],
+                         ["日期須為 YYYY-MM-DD。"])
+        self.assertFalse(find_activities(acts, status="done")["ok"])
+
+        
 if __name__ == "__main__":
     unittest.main()

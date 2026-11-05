@@ -22,7 +22,8 @@ assign_classroom(activity, classroom_id, classrooms, courses, activities) -> dic
 
 from copy import deepcopy
 
-from .scheduling import intervals_overlap, project_activities, time_minutes, validate_activity
+from .scheduling import (intervals_overlap, parse_date, project_activities, time_minutes,
+                         validate_activity)
 from .validation import positive_integer
 
 
@@ -173,3 +174,45 @@ def update_activity(activity_id, updates, data, period_times):
     updated = deepcopy(data["activities"])
     updated[index] = deepcopy(merged)
     return _result(updated)
+
+
+def register_participant(activity_id, student_id, data):
+    """Return a new activity list with student_id signed up, or every reason it cannot be."""
+    updated = deepcopy(data["activities"])
+    target = next((a for a in updated if a["activity_id"] == activity_id), None)
+    if target is None:
+        return _result(None, ["找不到指定活動。"])
+    errors = []
+    if target["status"] == "cancelled":
+        errors.append("活動已取消，無法報名。")
+    if student_id not in {s["student_id"] for s in data["students"]}:
+        errors.append("學生不存在。")
+    if student_id in target["participant_ids"]:
+        errors.append("已報名此活動，不得重複報名。")
+    need = target.get("capacity")
+    if not positive_integer(need):
+        errors.append("活動容量必須為正整數。")
+    elif len(target["participant_ids"]) >= need:
+        errors.append(f"活動已額滿（{need} 人）。")
+    if errors:
+        return _result(None, errors)
+    target["participant_ids"].append(student_id)
+    return _result(updated)
+
+
+def find_activities(activities, date=None, classroom_id=None, status=None, student_id=None):
+    """Return matching activities sorted by date and start time; None means no filter."""
+    if date is not None:
+        try:
+            parse_date(date)
+        except ValueError:
+            return _result([], ["日期須為 YYYY-MM-DD。"])
+    if status is not None and status not in ("scheduled", "cancelled"):
+        return _result([], ["活動狀態須為 scheduled 或 cancelled。"])
+    rows = [a for a in activities
+            if (date is None or a["date"] == date)
+            and (classroom_id is None or a["classroom_id"] == classroom_id)
+            and (status is None or a["status"] == status)
+            and (student_id is None or student_id in a["participant_ids"])]
+    rows.sort(key=lambda a: (a["date"], a["start_time"]))
+    return _result(deepcopy(rows))
