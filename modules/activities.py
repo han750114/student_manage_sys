@@ -1,23 +1,24 @@
+"""F4 校園活動管理與教室配置模組。
 
-"""F4 校園活動管理與教室配置模組（尚未實作）。
-
-預計介面：
-add_activity(activities, activity, classrooms, courses) -> dict
-update_activity(activities, activity_id, updates, classrooms, courses) -> dict
-cancel_activity(activities, activity_id) -> dict
-find_activities(activities, filters) -> list[dict]
-find_available_classrooms(activity, classrooms, courses, activities) -> list[dict]
-assign_classroom(activity, classroom_id, classrooms, courses, activities) -> dict
+介面（dict 皆為 {"ok", "data", "errors"}）：
+check_room(activity, room, data, period_times) -> list[str]
+find_available_classrooms(activity, classrooms, data, period_times) -> dict
+add_activity(activity, data, period_times) -> dict
+cancel_activity(activity_id, data) -> dict
+update_activity(activity_id, updates, data, period_times) -> dict
+register_participant(activity_id, student_id, data) -> dict
+find_activities(activities, date=None, classroom_id=None, status=None, student_id=None) -> dict
 
 功能說明：
-支援校園活動的新增、修改、取消及查詢。
+支援校園活動的新增、修改、取消、報名及查詢。
 依照教室容量、可用時段及設備需求篩選合適教室。
-共用 conflicts.py 的時間衝突檢查機制。
+共用 scheduling.py 的時間換算與重疊判斷（半開區間），與課程使用同一套衝突規則。
 避免課程與活動在相同時段重複使用同一間教室。
 活動報名人數不得超過活動或教室容量限制。
-若無符合條件的教室，須列出未滿足的配置條件。
+若無符合條件的教室，須列出每間教室未滿足的配置條件。
 執行核心處理前須先驗證輸入資料。
-操作失敗時不得修改原始資料。
+所有函式回傳新資料，不修改原始資料；取消活動只改 status，不刪除紀錄。
+教室若沒有 equipment 欄位，視為沒有任何設備。
 """
 
 from copy import deepcopy
