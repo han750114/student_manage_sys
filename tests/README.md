@@ -1,6 +1,9 @@
 # 自動化測試計畫
 
 2026-10-30 完整回歸：110 個測試通過，涵蓋 F1、儲存、F2、F3 與 CLI 整合。
+2026-11-13 F4／F5 CLI 整合：新增 24 項測試，標準探索共 235 項通過；
+使用 `python -B -X utf8 -m unittest discover -s tests -p '*test*.py' -q` 納入 storage_test.py 後，共 285 項通過。
+storage_test.py 未以 test_ 開頭，因此不會被下方標準命令探索；這是既有測試命名待修項目。
 執行結果為 0 個測試時，不代表功能通過。
 
 使用 Python 標準函式庫 unittest：
@@ -25,6 +28,7 @@ python -m unittest discover -s tests -v
 | 錯誤／衝突 | 14 | test_f2.py 的 Error and conflict cases 區段：同時多限制、全部課程／教室衝突、活動衝突、重複選課、無效代號與格式等 |
 
 整合測試見 test_f2_f3_integration.py；活動週別、時間邊界與空堂測試見 test_activity_timetable.py。
+F4／F5 的選單、活動存檔／重啟／課表、失敗回復、教室篩選及唯讀課程檢查，見 test_f4_f5_cli.py。
 測試中提供的節次時間是合成測資，不代表學校實際時間。
 
 | 類型 | 優先案例 |
@@ -35,5 +39,5 @@ python -m unittest discover -s tests -v
 
 至少準備 20 門課程、15 名學生、5 間教室；F4 至少 10 項活動。
 目前 data/ 有 20 門課程、15 名學生與 5 間教室，活動／選課清單為空；測試自行建立獨立測資。
-F4 的 10 項活動及完整 F1～F6 驗收仍待完成，不能只以測試數量判定全部功能完成。
+F4 已有 test_f4_simulation.py 的 10 項活動模擬；完整 F1～F6 驗收及組員 Review 仍待完成，不能只以測試數量判定全部功能完成。
 第 10 週起新增核心功能須先寫失敗測試，保存 TDD 過程。

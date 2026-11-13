@@ -1,9 +1,9 @@
 
-"""F5 多條件課程篩選與可行性檢查模組（尚未實作）。
+"""F5 多條件課程篩選與可行性檢查模組。
 
-預計介面：
+介面：
 filter_courses(courses, preferences, enrollments) -> list[dict]
-check_course_feasibility(student_id, course_id, data, constraints) -> dict
+check_course_feasibility(student_id, course_id, data, constraints, period_times=None) -> dict
 check_credit_range(selected_courses, min_credits, max_credits) -> list[str]
 validate_preferences(preferences) -> list[str]
 
@@ -71,7 +71,7 @@ def check_credit_range(selected_courses, min_credits, max_credits):
         errors.append(f"總學分 {total} 高於最高限制 {max_credits}。")
     return errors
 
-def check_course_feasibility(student_id, course_id, data, constraints):
+def check_course_feasibility(student_id, course_id, data, constraints, period_times=None):
     """
     綜合檢查單一課程的可行性。
     共用 conflicts.py 檢查衝堂與額滿，並額外檢查學生自訂的不可上課時段。
@@ -85,7 +85,7 @@ def check_course_feasibility(student_id, course_id, data, constraints):
         return result
         
     # 2. 呼叫 F2 既有的檢查機制 (包含衝堂、額滿、學分上限等)
-    enrollment_result = check_enrollment(student_id, course_id, data)
+    enrollment_result = check_enrollment(student_id, course_id, data, period_times)
     errors = list(enrollment_result.get("errors", []))
     
     target = next((c for c in data.get("courses", []) if c.get("course_id") == course_id), None)
